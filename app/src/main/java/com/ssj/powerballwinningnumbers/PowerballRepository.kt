@@ -22,26 +22,18 @@ class PowerballRepository(private val context: Context) {
     companion object {
         private const val TAG = "PowerballRepo"
         private val BASE_URL = "https://www.powerball.com/"
-
-        // Date formats for parsing various date strings
         private val DATE_PATTERNS = listOf(
-            "EEE, MMM dd, yyyy",
-            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-            "EEEE, MMMM dd, yyyy",
-            "MMM dd, yyyy",
-            "MMMM dd, yyyy",
-            "yyyy-MM-dd",
-            "MM/dd/yyyy"
+            "EEE, MMM dd, yyyy", "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+            "EEEE, MMMM dd, yyyy", "MMM dd, yyyy", "MMMM dd, yyyy",
+            "yyyy-MM-dd", "MM/dd/yyyy"
         )
     }
 
     suspend fun getLatestNumbers(): PowerballNumbers? {
-        // All network/parsing operations will be performed on the IO thread.
         return withContext(Dispatchers.IO) {
             try {
                 // --- Step 1: Main Page Processing ---
                 Log.d(TAG, "[Step 1] Fetching main page: $BASE_URL")
-                // WebView operations must run on the Main thread.
                 val mainPageHtml = withContext(Dispatchers.Main) {
                     getHtmlWithWebView(BASE_URL)
                 }
@@ -54,97 +46,107 @@ class PowerballRepository(private val context: Context) {
                 val mainDoc = Jsoup.parse(mainPageHtml)
                 val (initialNumbers, detailPageUrl) = parseFromHtml(mainDoc)
 
-                if (initialNumbers == null) {
+                var finalNumbers = initialNumbers
+
+                if (finalNumbers == null) {
                     Log.e(TAG, "[Step 1] Failed to parse initial numbers from main page. Aborting.")
                     return@withContext null
                 }
-                if (detailPageUrl == null) {
-                    Log.w(TAG, "[Step 1] Could not construct detail page URL. Returning partial data.")
-                    return@withContext initialNumbers // If URL creation fails, return the data collected so far.
+
+                if (detailPageUrl != null) {
+                    // --- Step 2: Detail Page Processing ---
+                    Log.d(TAG, "[Step 2] Fetching detail page: $detailPageUrl")
+                    val detailPageHtml = withContext(Dispatchers.Main) {
+                        getHtmlWithWebView(detailPageUrl, isDetailPage = true)
+                    }
+
+                    if (detailPageHtml != null) {
+                        // --- Step 2.2: Parse Detail Page ---
+                        val detailDoc = Jsoup.parse(detailPageHtml)
+                        val (jackpot, cashValue) = fetchAndParseJackpotDetails(detailDoc)
+
+                        // --- Final Combination ---
+                        Log.i(TAG, "All data successfully parsed. Updating final object.")
+                        finalNumbers = finalNumbers.copy(
+                            jackpotAmount = jackpot,
+                            cashValue = cashValue
+                        )
+                    } else {
+                        Log.w(TAG, "[Step 2] Failed to get HTML from detail page. Using partial data.")
+                    }
+                } else {
+                    Log.w(TAG, "[Step 1] 'View Results' button not found. Using partial data.")
                 }
 
-                // --- Step 2: Detail Page Processing ---
-                Log.d(TAG, "[Step 2] Fetching detail page: $detailPageUrl")
-                val detailPageHtml = withContext(Dispatchers.Main) { // WebView operations on Main thread.
-                    getHtmlWithWebView(detailPageUrl, isDetailPage = true)
-                }
-                if (detailPageHtml == null) {
-                    Log.w(TAG, "[Step 2] Failed to get HTML from detail page. Returning with partial data.")
-                    return@withContext initialNumbers // If detail page fails, return partial data.
-                }
-
-                // --- Step 2.2: Parse Detail Page ---
-                val detailDoc = Jsoup.parse(detailPageHtml)
-                val (jackpot, cashValue) = fetchAndParseJackpotDetails(detailDoc)
-
-                // --- Final Combination ---
-                Log.i(TAG, "All data successfully parsed. Combining results.")
-                initialNumbers.copy(
-                    jackpotAmount = jackpot,
-                    cashValue = cashValue
-                )
+                return@withContext finalNumbers
 
             } catch (e: Exception) {
                 Log.e(TAG, "An exception occurred in getLatestNumbers: ${e.message}", e)
-                null
+                return@withContext null
             }
         }
     }
 
     private suspend fun getHtmlWithWebView(url: String, isDetailPage: Boolean = false): String? = suspendCancellableCoroutine { continuation ->
+        val pageLoadHandler = Handler(Looper.getMainLooper())
+        var isFinished = false
+
         val webView = WebView(context)
         webView.settings.javaScriptEnabled = true
         webView.settings.blockNetworkImage = true
 
-        webView.webViewClient = object : WebViewClient() {
-            private var isFinished = false
-            override fun onPageFinished(view: WebView?, url: String?) {
-                super.onPageFinished(view, url)
-                if (isFinished || !continuation.isActive) return
+        val extractHtmlRunnable = Runnable {
+            if (!isFinished && continuation.isActive) {
                 isFinished = true
-                // Add a slight delay to ensure all JavaScript has executed.
-                Handler(Looper.getMainLooper()).postDelayed({
-                    view?.evaluateJavascript("(function() { return document.documentElement.outerHTML; })();") { htmlResult ->
-                        val unescapedHtml = htmlResult?.removeSurrounding("\"")?.replace("\\u003C", "<")?.replace("\\n", "\n")?.replace("\\t", "\t")?.replace("\\\"", "\"")
-                        if (continuation.isActive) {
-                            continuation.resume(unescapedHtml)
-                        }
-                        destroyWebView(view)
+                Log.d(TAG, "Debounce timer fired. Evaluating JavaScript for $url")
+                webView.evaluateJavascript("(function() { return document.documentElement.outerHTML; })();") { htmlResult ->
+                    val unescapedHtml = htmlResult?.removeSurrounding("\"")?.replace("\\u003C", "<")?.replace("\\n", "\n")?.replace("\\t", "\t")?.replace("\\\"", "\"")
+                    if (continuation.isActive) {
+                        continuation.resume(unescapedHtml)
                     }
-                }, 1000) // 1-second delay
+                    destroyWebView(webView)
+                }
             }
         }
 
-        // Set a slightly longer timeout.
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                Log.d(TAG, "onPageFinished called for URL: $url")
+                pageLoadHandler.removeCallbacks(extractHtmlRunnable)
+                pageLoadHandler.postDelayed(extractHtmlRunnable, 500)
+            }
+        }
+
         val timeout = if (isDetailPage) 15000L else 25000L
         val timeoutHandler = Handler(Looper.getMainLooper())
         val timeoutRunnable = Runnable {
-            if (continuation.isActive) {
+            if (!isFinished && continuation.isActive) {
+                isFinished = true
                 Log.e(TAG, "WebView loading timed out for url: $url")
+                pageLoadHandler.removeCallbacks(extractHtmlRunnable)
                 continuation.resume(null)
                 destroyWebView(webView)
             }
         }
+
         continuation.invokeOnCancellation {
             timeoutHandler.removeCallbacks(timeoutRunnable)
+            pageLoadHandler.removeCallbacks(extractHtmlRunnable)
             destroyWebView(webView)
         }
+
         timeoutHandler.postDelayed(timeoutRunnable, timeout)
         webView.loadUrl(url)
     }
 
     private fun destroyWebView(webView: WebView?) {
-        // WebView destruction must be done on the Main thread.
         Handler(Looper.getMainLooper()).post {
             webView?.stopLoading()
             webView?.destroy()
         }
     }
 
-    /**
-     * Step 1: Parses the main page for basic winning numbers and the detail page URL.
-     * @return A Pair containing a partially-filled PowerballNumbers object and the detail page URL.
-     */
     private fun parseFromHtml(doc: Document): Pair<PowerballNumbers?, String?> {
         Log.d(TAG, "Starting parseFromHtml for main page...")
         val winningNumbersCard = doc.select("div#numbers div.card").first()
@@ -165,28 +167,16 @@ class PowerballRepository(private val context: Context) {
 
         val (formattedDate, dateObject, urlDate) = parseAndFormatDate(drawDateStr)
         val multiplier = findMultiplier(winningNumbersCard)
-
-        // This function now returns a Pair of strings for the next draw.
         val (nextDate, nextAmount) = findNextDrawInfo(doc)
 
-        // Construct the detail page URL
-        val detailPageUrl = if (urlDate != null) {
-            "${BASE_URL}draw-result?date=$urlDate"
+        val viewResultsButton = winningNumbersCard.select("a[href*=draw-result]").first()
+        val detailPageUrl = if (viewResultsButton != null) {
+            val relativeUrl = viewResultsButton.attr("href")
+            Log.d(TAG, "Found 'View Results' button with URL: $relativeUrl")
+            if (relativeUrl.startsWith("http")) relativeUrl else "$BASE_URL${relativeUrl.removePrefix("/")}"
         } else {
-            val relativeUrl = winningNumbersCard.select("a[href*=draw-result]").first()?.attr("href")
-            if (relativeUrl != null) {
-                Log.d(TAG, "Found relative URL from 'View Results' button: $relativeUrl")
-                // Handle both absolute and relative URLs.
-                if (relativeUrl.startsWith("http")) relativeUrl else "$BASE_URL${relativeUrl.removePrefix("/")}"
-            } else {
-                Log.e(TAG, "Could not find 'View Results' button to get detail URL.")
-                null
-            }
-        }
-
-        if (detailPageUrl == null) {
-            Log.e(TAG, "Could not construct detail page URL.")
-            return Pair(null, null)
+            Log.w(TAG, "Could not find 'View Results' button. Will not fetch jackpot details.")
+            null
         }
 
         val initialNumbers = PowerballNumbers(
@@ -196,23 +186,18 @@ class PowerballRepository(private val context: Context) {
             numbers = numbers,
             powerball = powerball,
             multiplier = multiplier,
-            jackpotAmount = "N/A", // Default value, will be fetched in step 2
-            cashValue = "N/A",     // Default value, will be fetched in step 2
+            jackpotAmount = "Counting..",
+            cashValue = "Counting..", // Also set a placeholder here
             nextDrawDate = nextDate,
             nextDrawJackpot = nextAmount
         )
         return Pair(initialNumbers, detailPageUrl)
     }
 
-    /**
-     * Step 2: Parses the detail result page for the accurate jackpot and cash value amounts.
-     */
     private fun fetchAndParseJackpotDetails(detailDoc: Document): Pair<String, String> {
         Log.d(TAG, "[Step 2] Starting fetchAndParseJackpotDetails...")
-
         val jackpotSelector = "div.estimated-jackpot span:last-child"
         val cashValueSelector = "div.cash-value span:last-child"
-
         val jackpot = detailDoc.select(jackpotSelector).first()?.text()?.trim()
         val cashValue = detailDoc.select(cashValueSelector).first()?.text()?.trim()
 
@@ -223,8 +208,8 @@ class PowerballRepository(private val context: Context) {
             Log.w(TAG, "[Step 2] Failed to parse Cash Value using selector: '$cashValueSelector'")
         }
 
-        val finalJackpot = if (jackpot.isNullOrEmpty()) "N/A" else jackpot
-        val finalCashValue = if (cashValue.isNullOrEmpty()) "N/A" else cashValue
+        val finalJackpot = if (jackpot.isNullOrEmpty()) "Counting.." else jackpot
+        val finalCashValue = if (cashValue.isNullOrEmpty()) "Counting.." else cashValue
 
         Log.i(TAG, "[Step 2] Parsed from detail page -> Jackpot: '$finalJackpot', Cash Value: '$finalCashValue'")
         return Pair(finalJackpot, finalCashValue)
@@ -256,10 +241,6 @@ class PowerballRepository(private val context: Context) {
         return text?.replace(Regex("[^0-9]"), "")?.toIntOrNull() ?: 1
     }
 
-    /**
-     * Finds both the date and amount for the next drawing from the main page.
-     * @return A Pair containing the date string and the amount string.
-     */
     private fun findNextDrawInfo(doc: Document): Pair<String, String> {
         val nextDrawingCard = doc.select("div#next-drawing div.card").first()
         if (nextDrawingCard == null) {
@@ -279,9 +260,6 @@ class PowerballRepository(private val context: Context) {
         return Pair(date, amount)
     }
 
-    /**
-     * @return A Triple containing: the formatted date string, the Date object, and the date string for the URL (YYYY-MM-DD).
-     */
     private fun parseAndFormatDate(dateString: String): Triple<String, Date?, String?> {
         for (pattern in DATE_PATTERNS) {
             try {
