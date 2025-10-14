@@ -3,10 +3,14 @@ package com.ssj.powerballwinningnumbers
 import java.util.Date
 
 data class PowerballNumbers(
-    val drawDate: String,           // Original date string from website
-    val drawDateFormatted: String,  // User-friendly formatted date
-    val drawDateObject: Date?,      // Actual Date object for calculations
-    val numbers: List<Int>,         // Regular numbers (5 numbers)
-    val powerball: Int,             // Powerball number
-    val multiplier: Int = 1         // Power Play multiplier
+    val drawDate: String,
+    val drawDateFormatted: String,
+    val drawDateObject: Date?,
+    val numbers: List<Int>,
+    val powerball: Int,
+    val multiplier: Int,
+    val jackpotAmount: String,
+    val cashValue: String,
+    val nextDrawDate: String, // Field for the next drawing date
+    val nextDrawJackpot: String // Field for the next drawing's jackpot amount
 )

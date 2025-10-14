@@ -1,14 +1,17 @@
 package com.ssj.powerballwinningnumbers
 
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 
-class PowerballViewModel : ViewModel() {
+// 2. ViewModel()을 AndroidViewModel(application)으로 변경
+class PowerballViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = PowerballRepository()
+    // 3. 생성자로 받은 application 객체를 Repository에 전달
+    private val repository = PowerballRepository(application)
 
     private val _numbers = MutableLiveData<PowerballNumbers?>()
     val numbers: LiveData<PowerballNumbers?> = _numbers

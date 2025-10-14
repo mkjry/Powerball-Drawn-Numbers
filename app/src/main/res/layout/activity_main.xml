@@ -1,129 +1,209 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- The root layout is now a ScrollView to allow vertical scrolling. -->
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp"
-    android:gravity="center">
+    android:fillViewport="true">
 
-    <ProgressBar
-        android:id="@+id/progress_bar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
-        android:layout_marginBottom="16dp" />
-
-    <TextView
-        android:id="@+id/tv_date"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:textColor="@android:color/black"
-        android:layout_marginBottom="8dp"
-        android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/tv_date_details"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="14sp"
-        android:textColor="@android:color/darker_gray"
-        android:layout_marginBottom="16dp"
-        android:visibility="gone" />
-
+    <!-- The original LinearLayout is now inside the ScrollView. -->
     <LinearLayout
-        android:id="@+id/layout_numbers"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="16dp"
-        android:visibility="gone">
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:gravity="center">
+
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp" />
 
         <TextView
-            android:id="@+id/tv_num1"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:gravity="center"
-            android:textSize="18sp"
+            android:id="@+id/tv_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="28sp"
             android:textStyle="bold"
-            android:background="@drawable/white_ball"
-            android:layout_marginEnd="8dp" />
+            android:layout_marginBottom="8dp"
+            android:visibility="gone" />
 
         <TextView
-            android:id="@+id/tv_num2"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:gravity="center"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:background="@drawable/white_ball"
-            android:layout_marginEnd="8dp" />
+            android:id="@+id/tv_date_details"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/layout_numbers"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_num1"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:background="@drawable/white_ball"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/tv_num2"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:background="@drawable/white_ball"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/tv_num3"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:background="@drawable/white_ball"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/tv_num4"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:background="@drawable/white_ball"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/tv_num5"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:background="@drawable/white_ball"
+                android:layout_marginEnd="16dp" />
+
+            <TextView
+                android:id="@+id/tv_powerball"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/white"
+                android:background="@drawable/red_ball" />
+
+        </LinearLayout>
 
         <TextView
-            android:id="@+id/tv_num3"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:gravity="center"
+            android:id="@+id/tv_multiplier"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:layout_marginBottom="16dp"
+            android:visibility="gone" />
+
+        <!-- Winning Draw Jackpot Info -->
+        <TextView
+            android:id="@+id/tv_jackpot"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Estimated Jackpot"
             android:textSize="18sp"
             android:textStyle="bold"
-            android:background="@drawable/white_ball"
-            android:layout_marginEnd="8dp" />
+            android:textColor="@android:color/holo_orange_dark"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone" />
 
         <TextView
-            android:id="@+id/tv_num4"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:gravity="center"
-            android:textSize="18sp"
+            android:id="@+id/tv_jackpot_amount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="32sp"
             android:textStyle="bold"
-            android:background="@drawable/white_ball"
-            android:layout_marginEnd="8dp" />
+            android:textColor="@android:color/holo_green_dark"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone" />
 
         <TextView
-            android:id="@+id/tv_num5"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:gravity="center"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:background="@drawable/white_ball"
-            android:layout_marginEnd="16dp" />
+            android:id="@+id/tv_cash_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginBottom="24dp"
+            android:visibility="gone" />
+
+        <!-- Next Drawing Info (Two lines, with a horizontal line, gray text) -->
+        <LinearLayout
+            android:id="@+id/layout_next_draw"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="start"
+            android:layout_marginBottom="24dp"
+            android:visibility="gone">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="@android:color/darker_gray" />
+
+            <TextView
+                android:id="@+id/tv_next_draw_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="16sp"
+                android:textColor="@android:color/darker_gray"
+                android:text="Next Drawing: Loading..."/>
+
+            <TextView
+                android:id="@+id/tv_next_draw_jackpot"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="16sp"
+                android:textColor="@android:color/darker_gray"
+                android:text="Estimated Jackpot: Loading..."/>
+
+        </LinearLayout>
 
         <TextView
-            android:id="@+id/tv_powerball"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:gravity="center"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="@android:color/white"
-            android:background="@drawable/red_ball" />
+            android:id="@+id/tv_error"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/holo_red_dark"
+            android:visibility="gone"
+            android:textAlignment="center" />
+
+        <Button
+            android:id="@+id/btn_fetch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Get recent Powerball numbers"
+            android:layout_marginBottom="24dp" />
 
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/tv_multiplier"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="14sp"
-        android:layout_marginBottom="16dp"
-        android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/tv_error"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="@android:color/holo_red_dark"
-        android:visibility="gone"
-        android:textAlignment="center" />
-
-    <Button
-        android:id="@+id/btn_fetch"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:text="Get recent Powerball numbers"
-        android:layout_marginBottom="24dp" />
-
-</LinearLayout>
+</ScrollView>
