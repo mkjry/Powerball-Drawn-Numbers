@@ -27,8 +27,8 @@
         </DialogSelection>
       </SelectionState>
       <SelectionState runConfigName="MainActivity">
-        <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-10-14T05:24:54.476788400Z">
+        <option name="selectionMode" value="DIALOG" />
+        <DropdownSelection timestamp="2025-10-16T07:52:26.085618300Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\Sung\.android\avd\Galaxy_Note8.avd" />
@@ -44,7 +44,7 @@
             </Target>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\Sung\.android\avd\API_31_A12_Galaxy_S10.avd" />
+                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\Sung\.android\avd\Galaxy_Note8.avd" />
               </handle>
             </Target>
           </targets>

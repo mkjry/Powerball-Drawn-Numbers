@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The root layout is now a ScrollView to allow vertical scrolling. -->
 <ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -126,8 +127,8 @@
             android:id="@+id/tv_jackpot"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Estimated Jackpot"
-            android:textSize="18sp"
+            android:text="Jackpot"
+            android:textSize="22sp"
             android:textStyle="bold"
             android:textColor="@android:color/holo_orange_dark"
             android:layout_marginBottom="8dp"
@@ -145,6 +146,15 @@
 
         <TextView
             android:id="@+id/tv_cash_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tv_jackpot_winners"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="14sp"
@@ -206,3 +216,4 @@
     </LinearLayout>
 
 </ScrollView>
+

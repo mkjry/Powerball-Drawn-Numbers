@@ -1,6 +1,7 @@
 package com.ssj.powerballwinningnumbers
 
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
@@ -28,6 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var layoutNumbers: LinearLayout
     private lateinit var tvError: TextView
     private lateinit var tvMultiplier: TextView
+    private lateinit var tvJackpotWinners: TextView
     private lateinit var numberViews: List<TextView>
     private lateinit var tvPowerball: TextView
 
@@ -44,7 +46,16 @@ class MainActivity : AppCompatActivity() {
         initViews()
         setupObservers()
         setupClickListeners()
-        getDrawingNumbers()
+
+        // Instead of fetching directly, check for a valid cache first.
+        viewModel.checkCacheAndFetch()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Save the current data to SharedPreferences when the app goes into the background.
+        Log.d(TAG, "onStop called. Saving data to SharedPreferences.")
+        viewModel.saveDataToPrefs()
     }
 
     private fun initViews() {
@@ -58,6 +69,7 @@ class MainActivity : AppCompatActivity() {
         layoutNumbers = findViewById(R.id.layout_numbers)
         tvError = findViewById(R.id.tv_error)
         tvMultiplier = findViewById(R.id.tv_multiplier)
+        tvJackpotWinners = findViewById(R.id.tv_jackpot_winners)
 
         // Initialize new views for the 'Next Drawing' section
         layoutNextDraw = findViewById(R.id.layout_next_draw)
@@ -102,12 +114,12 @@ class MainActivity : AppCompatActivity() {
     private fun setupClickListeners() {
         btnFetch.setOnClickListener {
             android.util.Log.d(TAG, "Fetch button clicked")
+            // The button always fetches fresh data from the network, ignoring the cache.
             getDrawingNumbers()
         }
     }
 
     private fun getDrawingNumbers() {
-        // Hide previously displayed content before fetching new data
         hideAllDataViews()
         viewModel.fetchLatestNumbers()
     }
@@ -117,22 +129,30 @@ class MainActivity : AppCompatActivity() {
 
         try {
             // --- Display Winning Draw Information ---
-            // Jackpot info for the winning draw
-            if (numbers.jackpotAmount.isNotEmpty() && numbers.jackpotAmount != "N/A") {
+            if (numbers.jackpotAmount.isNotEmpty() && numbers.jackpotAmount != "Counting..") {
                 tvJackpot.visibility = View.VISIBLE
                 tvJackpotAmount.text = numbers.jackpotAmount
                 tvJackpotAmount.visibility = View.VISIBLE
             }
-            if (numbers.cashValue.isNotEmpty() && numbers.cashValue != "N/A") {
-                tvCashValue.text = "Cash Value: ${numbers.cashValue}"
-                tvCashValue.visibility = View.VISIBLE
+
+            // This part is commented out to hide the Cash Value.
+            // if (numbers.cashValue.isNotEmpty() && numbers.cashValue != "Counting..") {
+            //     tvCashValue.text = "Cash Value: ${numbers.cashValue}"
+            //     tvCashValue.visibility = View.VISIBLE
+            // }
+
+            if (numbers.jackpotWinners.isNotEmpty() && numbers.jackpotWinners != "Counting..") {
+                if (numbers.jackpotWinners.equals("None", ignoreCase = true)) {
+                    tvJackpotWinners.text = "No winners"
+                } else {
+                    tvJackpotWinners.text = "Winners: ${numbers.jackpotWinners}"
+                }
+                tvJackpotWinners.visibility = View.VISIBLE
             }
 
-            // Draw date
             tvDate.text = numbers.drawDateFormatted
             tvDate.visibility = View.VISIBLE
 
-            // Additional date details (e.g., "2 days ago")
             val dateDetails = buildString {
                 numbers.drawDateObject?.let { drawDate ->
                     val currentDate = java.util.Date()
@@ -150,7 +170,6 @@ class MainActivity : AppCompatActivity() {
             // Only show if there is content
             tvDateDetails.visibility = if (dateDetails.isNotEmpty()) View.VISIBLE else View.GONE
 
-            // Winning numbers
             numbers.numbers.forEachIndexed { index, number ->
                 if (index < numberViews.size) {
                     numberViews[index].text = number.toString()
@@ -159,11 +178,11 @@ class MainActivity : AppCompatActivity() {
             tvPowerball.text = numbers.powerball.toString()
             layoutNumbers.visibility = View.VISIBLE
 
-            // Multiplier
-            if (numbers.multiplier > 1) {
-                tvMultiplier.text = "Power Play: ${numbers.multiplier}X"
-                tvMultiplier.visibility = View.VISIBLE
-            }
+            // This part is commented out to hide the Power Play multiplier.
+            // if (numbers.multiplier > 1) {
+            //     tvMultiplier.text = "Power Play: ${numbers.multiplier}X"
+            //     tvMultiplier.visibility = View.VISIBLE
+            // }
 
             // --- Display Next Drawing Information ---
             if (numbers.nextDrawDate.isNotEmpty() && numbers.nextDrawDate != "N/A") {
@@ -172,7 +191,6 @@ class MainActivity : AppCompatActivity() {
                 layoutNextDraw.visibility = View.VISIBLE
             }
 
-            // Hide any error messages if data is displayed successfully
             tvError.visibility = View.GONE
 
         } catch (e: Exception) {
@@ -186,11 +204,12 @@ class MainActivity : AppCompatActivity() {
         tvJackpot.visibility = View.GONE
         tvJackpotAmount.visibility = View.GONE
         tvCashValue.visibility = View.GONE
+        tvJackpotWinners.visibility = View.GONE
         tvDate.visibility = View.GONE
         tvDateDetails.visibility = View.GONE
         layoutNumbers.visibility = View.GONE
         tvMultiplier.visibility = View.GONE
-        layoutNextDraw.visibility = View.GONE // Hide the new layout as well
+        layoutNextDraw.visibility = View.GONE
         tvError.visibility = View.GONE
     }
 }
