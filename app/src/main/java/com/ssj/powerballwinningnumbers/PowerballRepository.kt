@@ -71,7 +71,8 @@ class PowerballRepository(private val context: Context) {
                 if (detailPageUrl != null) {
                     // Step 2: Detail Page Processing
                     Log.d(TAG, "[Step 2] Fetching detail page: $detailPageUrl")
-                    val detailPageHtml = withContext(Dispatchers.Main) { getHtmlWithWebView(detailPageUrl, true) }
+                    val detailPageHtml =
+                        withContext(Dispatchers.Main) { getHtmlWithWebView(detailPageUrl, true) }
 
                     if (detailPageHtml != null) {
                         // Step 2.2: Parse Detail Page
@@ -87,7 +88,10 @@ class PowerballRepository(private val context: Context) {
                         )
                         saveToCache(finalNumbers) // Save the complete data to cache
                     } else {
-                        Log.w(TAG, "[Step 2] Failed to get HTML from detail page. Using partial data.")
+                        Log.w(
+                            TAG,
+                            "[Step 2] Failed to get HTML from detail page. Using partial data."
+                        )
                     }
                 } else {
                     Log.w(TAG, "[Step 1] 'View Results' button not found. Using partial data.")
@@ -101,55 +105,60 @@ class PowerballRepository(private val context: Context) {
         }
     }
 
-    private suspend fun getHtmlWithWebView(url: String, isDetailPage: Boolean = false): String? = suspendCancellableCoroutine { continuation ->
-        val pageLoadHandler = Handler(Looper.getMainLooper())
-        var isFinished = false
-        val webView = WebView(context)
-        webView.settings.javaScriptEnabled = true
-        webView.settings.blockNetworkImage = true
+    private suspend fun getHtmlWithWebView(url: String, isDetailPage: Boolean = false): String? =
+        suspendCancellableCoroutine { continuation ->
+            val pageLoadHandler = Handler(Looper.getMainLooper())
+            var isFinished = false
+            val webView = WebView(context)
+            webView.settings.javaScriptEnabled = true
+            webView.settings.blockNetworkImage = true
 
-        val extractHtmlRunnable = Runnable {
-            if (!isFinished && continuation.isActive) {
-                isFinished = true
-                Log.d(TAG, "Debounce timer fired. Evaluating JavaScript for $url")
-                webView.evaluateJavascript("(function() { return document.documentElement.outerHTML; })();") { htmlResult ->
-                    val unescapedHtml = htmlResult?.removeSurrounding("\"")?.replace("\\u003C", "<")?.replace("\\n", "\n")?.replace("\\t", "\t")?.replace("\\\"", "\"")
-                    if (continuation.isActive) { continuation.resume(unescapedHtml) }
+            val extractHtmlRunnable = Runnable {
+                if (!isFinished && continuation.isActive) {
+                    isFinished = true
+                    Log.d(TAG, "Debounce timer fired. Evaluating JavaScript for $url")
+                    webView.evaluateJavascript("(function() { return document.documentElement.outerHTML; })();") { htmlResult ->
+                        val unescapedHtml =
+                            htmlResult?.removeSurrounding("\"")?.replace("\\u003C", "<")
+                                ?.replace("\\n", "\n")?.replace("\\t", "\t")?.replace("\\\"", "\"")
+                        if (continuation.isActive) {
+                            continuation.resume(unescapedHtml)
+                        }
+                        destroyWebView(webView)
+                    }
+                }
+            }
+
+            webView.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    Log.d(TAG, "onPageFinished called for URL: $url")
+                    pageLoadHandler.removeCallbacks(extractHtmlRunnable)
+                    pageLoadHandler.postDelayed(extractHtmlRunnable, 500)
+                }
+            }
+
+            val timeout = if (isDetailPage) 15000L else 25000L
+            val timeoutHandler = Handler(Looper.getMainLooper())
+            val timeoutRunnable = Runnable {
+                if (!isFinished && continuation.isActive) {
+                    isFinished = true
+                    Log.e(TAG, "WebView loading timed out for url: $url")
+                    pageLoadHandler.removeCallbacks(extractHtmlRunnable)
+                    continuation.resume(null)
                     destroyWebView(webView)
                 }
             }
-        }
 
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView?, url: String?) {
-                super.onPageFinished(view, url)
-                Log.d(TAG, "onPageFinished called for URL: $url")
+            continuation.invokeOnCancellation {
+                timeoutHandler.removeCallbacks(timeoutRunnable)
                 pageLoadHandler.removeCallbacks(extractHtmlRunnable)
-                pageLoadHandler.postDelayed(extractHtmlRunnable, 500)
-            }
-        }
-
-        val timeout = if (isDetailPage) 15000L else 25000L
-        val timeoutHandler = Handler(Looper.getMainLooper())
-        val timeoutRunnable = Runnable {
-            if (!isFinished && continuation.isActive) {
-                isFinished = true
-                Log.e(TAG, "WebView loading timed out for url: $url")
-                pageLoadHandler.removeCallbacks(extractHtmlRunnable)
-                continuation.resume(null)
                 destroyWebView(webView)
             }
-        }
 
-        continuation.invokeOnCancellation {
-            timeoutHandler.removeCallbacks(timeoutRunnable)
-            pageLoadHandler.removeCallbacks(extractHtmlRunnable)
-            destroyWebView(webView)
+            timeoutHandler.postDelayed(timeoutRunnable, timeout)
+            webView.loadUrl(url)
         }
-
-        timeoutHandler.postDelayed(timeoutRunnable, timeout)
-        webView.loadUrl(url)
-    }
 
     private fun destroyWebView(webView: WebView?) {
         Handler(Looper.getMainLooper()).post {
@@ -169,10 +178,16 @@ class PowerballRepository(private val context: Context) {
         val powerball = findPowerballNumber(winningNumbersCard)
         val drawDateStr = findDrawDate(winningNumbersCard)
         if (numbers.size != 5 || powerball == 0 || drawDateStr == "Unknown Date") {
-            Log.e(TAG, "Failed to parse essential data. Numbers: ${numbers.size}, Powerball: $powerball, Date: $drawDateStr")
+            Log.e(
+                TAG,
+                "Failed to parse essential data. Numbers: ${numbers.size}, Powerball: $powerball, Date: $drawDateStr"
+            )
             return Pair(null, null)
         }
-        Log.i(TAG, "Parsed essential data: Nums=${numbers.joinToString()}, PB=$powerball, Date='$drawDateStr'")
+        Log.i(
+            TAG,
+            "Parsed essential data: Nums=${numbers.joinToString()}, PB=$powerball, Date='$drawDateStr'"
+        )
         val (formattedDate, dateObject, urlDate) = parseAndFormatDate(drawDateStr)
         val multiplier = findMultiplier(winningNumbersCard)
         val (nextDateStr, nextAmount, nextDateObject) = findNextDrawInfo(doc)
@@ -181,7 +196,11 @@ class PowerballRepository(private val context: Context) {
         val detailPageUrl = if (viewResultsButton != null) {
             val relativeUrl = viewResultsButton.attr("href")
             Log.d(TAG, "Found 'View Results' button with URL: $relativeUrl")
-            if (relativeUrl.startsWith("http")) relativeUrl else "$BASE_URL${relativeUrl.removePrefix("/")}"
+            if (relativeUrl.startsWith("http")) relativeUrl else "$BASE_URL${
+                relativeUrl.removePrefix(
+                    "/"
+                )
+            }"
         } else {
             Log.w(TAG, "Could not find 'View Results' button. Will not fetch jackpot details.")
             null
@@ -218,7 +237,10 @@ class PowerballRepository(private val context: Context) {
         val finalCashValue = if (cashValue.isNullOrEmpty()) "Counting.." else cashValue
         val finalWinners = if (winners.isNullOrEmpty()) "N/A" else winners
 
-        Log.i(TAG, "[Step 2] Parsed from detail page -> Jackpot: '$finalJackpot', Cash: '$finalCashValue', Winners: '$finalWinners'")
+        Log.i(
+            TAG,
+            "[Step 2] Parsed from detail page -> Jackpot: '$finalJackpot', Cash: '$finalCashValue', Winners: '$finalWinners'"
+        )
         return Triple(finalJackpot, finalCashValue, finalWinners)
     }
 

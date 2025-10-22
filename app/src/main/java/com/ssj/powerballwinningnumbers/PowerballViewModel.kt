@@ -24,11 +24,18 @@ class PowerballViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             _loading.postValue(true)
             val cachedNumbers = repository.getLatestNumbers(forceNetwork = false)
-            if (cachedNumbers != null && cachedNumbers.jackpotAmount != "Counting..") {
+
+            if (cachedNumbers != null) {
+                // If cached data exists, display it immediately.
                 _numbers.postValue(cachedNumbers)
-                _loading.postValue(false)
+            }
+
+            // If cache is missing or is incomplete, fetch from network.
+            if (cachedNumbers == null || cachedNumbers.jackpotAmount == "Counting..") {
+                fetchLatestNumbers(forceNetwork = true)
             } else {
-                fetchLatestNumbers()
+                // If cache is valid and complete, stop the loading indicator.
+                _loading.postValue(false)
             }
         }
     }

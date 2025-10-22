@@ -1,5 +1,7 @@
 package com.ssj.powerballwinningnumbers
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -20,6 +22,7 @@ class MainActivity : AppCompatActivity() {
 
     // UI Elements
     private lateinit var btnFetch: Button
+    private lateinit var btnOpenWebsite: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var tvJackpot: TextView
     private lateinit var tvJackpotAmount: TextView
@@ -33,7 +36,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var numberViews: List<TextView>
     private lateinit var tvPowerball: TextView
 
-    // UI Elements for the 'Next Drawing' section
+    // ADDED: UI Elements for the 'Next Drawing' section
     private lateinit var layoutNextDraw: LinearLayout
     private lateinit var tvNextDrawDate: TextView
     private lateinit var tvNextDrawJackpot: TextView
@@ -47,19 +50,21 @@ class MainActivity : AppCompatActivity() {
         setupObservers()
         setupClickListeners()
 
-        // Instead of fetching directly, check for a valid cache first.
+        // ADDED: Instead of fetching directly, check for a valid cache first.
         viewModel.checkCacheAndFetch()
     }
 
+    // ADDED: onStop, for saving data to SharedPreferences
     override fun onStop() {
         super.onStop()
-        // Save the current data to SharedPreferences when the app goes into the background.
+        // ADDED: Save the current data to SharedPreferences when the app goes into the background.
         Log.d(TAG, "onStop called. Saving data to SharedPreferences.")
         viewModel.saveDataToPrefs()
     }
 
     private fun initViews() {
         btnFetch = findViewById(R.id.btn_fetch)
+        btnOpenWebsite = findViewById(R.id.btn_open_website)
         progressBar = findViewById(R.id.progress_bar)
         tvJackpot = findViewById(R.id.tv_jackpot)
         tvJackpotAmount = findViewById(R.id.tv_jackpot_amount)
@@ -71,7 +76,7 @@ class MainActivity : AppCompatActivity() {
         tvMultiplier = findViewById(R.id.tv_multiplier)
         tvJackpotWinners = findViewById(R.id.tv_jackpot_winners)
 
-        // Initialize new views for the 'Next Drawing' section
+        // ADDED: Initialize new views for the 'Next Drawing' section
         layoutNextDraw = findViewById(R.id.layout_next_draw)
         tvNextDrawDate = findViewById(R.id.tv_next_draw_date)
         tvNextDrawJackpot = findViewById(R.id.tv_next_draw_jackpot)
@@ -114,14 +119,21 @@ class MainActivity : AppCompatActivity() {
     private fun setupClickListeners() {
         btnFetch.setOnClickListener {
             android.util.Log.d(TAG, "Fetch button clicked")
-            // The button always fetches fresh data from the network, ignoring the cache.
+            // ADDED: The button always fetches fresh data from the network, ignoring the cache.
             getDrawingNumbers()
+        }
+
+        btnOpenWebsite.setOnClickListener {
+            val url = "https://www.powerball.com/"
+            val intent = Intent(Intent.ACTION_VIEW)
+            intent.data = Uri.parse(url)
+            startActivity(intent)
         }
     }
 
     private fun getDrawingNumbers() {
         hideAllDataViews()
-        viewModel.fetchLatestNumbers()
+        viewModel.fetchLatestNumbers(forceNetwork = true)
     }
 
     private fun displayNumbers(numbers: PowerballNumbers) {
@@ -135,20 +147,19 @@ class MainActivity : AppCompatActivity() {
                 tvJackpotAmount.visibility = View.VISIBLE
             }
 
-            // This part is commented out to hide the Cash Value.
+            // ADDED: This part is commented out to hide the Cash Value.
             // if (numbers.cashValue.isNotEmpty() && numbers.cashValue != "Counting..") {
             //     tvCashValue.text = "Cash Value: ${numbers.cashValue}"
             //     tvCashValue.visibility = View.VISIBLE
             // }
 
-            if (numbers.jackpotWinners.isNotEmpty() && numbers.jackpotWinners != "Counting..") {
-                if (numbers.jackpotWinners.equals("None", ignoreCase = true)) {
-                    tvJackpotWinners.text = "No winners"
-                } else {
-                    tvJackpotWinners.text = "Winners: ${numbers.jackpotWinners}"
-                }
-                tvJackpotWinners.visibility = View.VISIBLE
+            if (numbers.jackpotWinners.equals("None", ignoreCase = true) || numbers.jackpotWinners.isEmpty()) {
+                tvJackpotWinners.text = "No Winner"
+            } else {
+                tvJackpotWinners.text = "Winners: ${numbers.jackpotWinners}"
             }
+            tvJackpotWinners.visibility = View.VISIBLE
+
 
             tvDate.text = numbers.drawDateFormatted
             tvDate.visibility = View.VISIBLE
@@ -178,7 +189,7 @@ class MainActivity : AppCompatActivity() {
             tvPowerball.text = numbers.powerball.toString()
             layoutNumbers.visibility = View.VISIBLE
 
-            // This part is commented out to hide the Power Play multiplier.
+            // ADDED: This part is commented out to hide the Power Play multiplier.
             // if (numbers.multiplier > 1) {
             //     tvMultiplier.text = "Power Play: ${numbers.multiplier}X"
             //     tvMultiplier.visibility = View.VISIBLE
