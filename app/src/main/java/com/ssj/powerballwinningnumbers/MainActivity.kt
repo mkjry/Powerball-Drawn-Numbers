@@ -1,226 +1,268 @@
 package com.ssj.powerballwinningnumbers
 
+import android.app.Application
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
-import android.view.View
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.ProgressBar
-import android.widget.TextView
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.ssj.powerballwinningnumbers.ui.theme.PowerballWinningNumbersTheme
+import java.util.*
 
-class MainActivity : AppCompatActivity() {
-
-    companion object {
-        private const val TAG = "MainActivity"
-    }
+class MainActivity : ComponentActivity() {
 
     private val viewModel: PowerballViewModel by viewModels()
 
-    // UI Elements
-    private lateinit var btnFetch: Button
-    private lateinit var btnOpenWebsite: Button
-    private lateinit var progressBar: ProgressBar
-    private lateinit var tvJackpot: TextView
-    private lateinit var tvJackpotAmount: TextView
-    private lateinit var tvCashValue: TextView
-    private lateinit var tvDate: TextView
-    private lateinit var tvDateDetails: TextView
-    private lateinit var layoutNumbers: LinearLayout
-    private lateinit var tvError: TextView
-    private lateinit var tvMultiplier: TextView
-    private lateinit var tvJackpotWinners: TextView
-    private lateinit var numberViews: List<TextView>
-    private lateinit var tvPowerball: TextView
-
-    // ADDED: UI Elements for the 'Next Drawing' section
-    private lateinit var layoutNextDraw: LinearLayout
-    private lateinit var tvNextDrawDate: TextView
-    private lateinit var tvNextDrawJackpot: TextView
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        android.util.Log.d(TAG, "MainActivity onCreate")
-        setContentView(R.layout.activity_main)
-
-        initViews()
-        setupObservers()
-        setupClickListeners()
-
-        // ADDED: Instead of fetching directly, check for a valid cache first.
+        setContent {
+            PowerballWinningNumbersTheme {
+                PowerballScreen(viewModel)
+            }
+        }
         viewModel.checkCacheAndFetch()
     }
 
-    // ADDED: onStop, for saving data to SharedPreferences
     override fun onStop() {
         super.onStop()
-        // ADDED: Save the current data to SharedPreferences when the app goes into the background.
-        Log.d(TAG, "onStop called. Saving data to SharedPreferences.")
         viewModel.saveDataToPrefs()
     }
+}
 
-    private fun initViews() {
-        btnFetch = findViewById(R.id.btn_fetch)
-        btnOpenWebsite = findViewById(R.id.btn_open_website)
-        progressBar = findViewById(R.id.progress_bar)
-        tvJackpot = findViewById(R.id.tv_jackpot)
-        tvJackpotAmount = findViewById(R.id.tv_jackpot_amount)
-        tvCashValue = findViewById(R.id.tv_cash_value)
-        tvDate = findViewById(R.id.tv_date)
-        tvDateDetails = findViewById(R.id.tv_date_details)
-        layoutNumbers = findViewById(R.id.layout_numbers)
-        tvError = findViewById(R.id.tv_error)
-        tvMultiplier = findViewById(R.id.tv_multiplier)
-        tvJackpotWinners = findViewById(R.id.tv_jackpot_winners)
+@Composable
+fun PowerballScreen(viewModel: PowerballViewModel) {
+    val numbers by viewModel.numbers.observeAsState()
+    val isLoading by viewModel.loading.observeAsState(false)
+    val error by viewModel.error.observeAsState()
+    val context = LocalContext.current
 
-        // ADDED: Initialize new views for the 'Next Drawing' section
-        layoutNextDraw = findViewById(R.id.layout_next_draw)
-        tvNextDrawDate = findViewById(R.id.tv_next_draw_date)
-        tvNextDrawJackpot = findViewById(R.id.tv_next_draw_jackpot)
+    PowerballScreenContent(
+        numbers = numbers,
+        isLoading = isLoading,
+        error = error,
+        onFetchClick = { viewModel.fetchLatestNumbers(forceNetwork = true) },
+        onWebsiteClick = {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.powerball.com/"))
+            context.startActivity(intent)
+        }
+    )
+}
 
-        numberViews = listOf(
-            findViewById(R.id.tv_num1),
-            findViewById(R.id.tv_num2),
-            findViewById(R.id.tv_num3),
-            findViewById(R.id.tv_num4),
-            findViewById(R.id.tv_num5)
+@Composable
+fun PowerballScreenContent(
+    numbers: PowerballNumbers?,
+    isLoading: Boolean,
+    error: String?,
+    onFetchClick: () -> Unit,
+    onWebsiteClick: () -> Unit
+) {
+    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()) // Make the column scrollable
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+            // Removed verticalArrangement to allow scrolling from the top
+        ) {
+            // Re-added Spacer for top padding in a scrollable view
+            Spacer(modifier = Modifier.height(32.dp))
+            Title()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (isLoading && numbers == null) {
+                CircularProgressIndicator()
+            }
+
+            error?.let {
+                Text(text = it, color = Color.Red, fontSize = 18.sp)
+            }
+
+            numbers?.let {
+                WinningNumbersDisplay(it)
+                Spacer(modifier = Modifier.height(12.dp))
+                NextDrawingInfo(it)
+
+                // Increased the space between the jackpot info and the buttons
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // This button's state is dependent on isLoading
+                Button(
+                    onClick = onFetchClick,
+                    shape = RoundedCornerShape(8.dp),
+                    enabled = !isLoading, // Disable button when loading
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.LightGray,       // Standby color
+                        contentColor = Color.Black,
+                        disabledContainerColor = Color.DarkGray, // Deactivated color
+                        disabledContentColor = Color.White
+                    )
+                ) {
+                    Text("Get recent Powerball numbers")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                // This button is always enabled and has a static color
+                Button(
+                    onClick = onWebsiteClick,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.LightGray,       // Static color
+                        contentColor = Color.Black
+                    )
+                ) {
+                    Text("Check Powerball Website")
+                }
+                // Add spacer at the bottom for padding when scrolled
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun Title() {
+    Column(
+        modifier = Modifier.width(IntrinsicSize.Max), // Set width to match the widest child
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row {
+            Text(text = "Power", fontSize = 34.sp, fontWeight = FontWeight.Bold)
+            Text(text = "Ball", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Color.Red)
+        }
+        // This Divider will now match the width of the Row above
+        Divider(color = Color.Gray, thickness = 1.dp, modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+@Composable
+fun WinningNumbersDisplay(numbers: PowerballNumbers) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = numbers.drawDateFormatted, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(8.dp))
+        DateDetails(numbers)
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            numbers.numbers.forEach {
+                NumberCircle(number = it.toString(), isPowerball = false)
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            NumberCircle(number = numbers.powerball.toString(), isPowerball = true)
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        JackpotInfo(numbers)
+    }
+}
+
+@Composable
+fun DateDetails(numbers: PowerballNumbers) {
+    val dateDetails = numbers.drawDateObject?.let {
+        val diffInDays = (System.currentTimeMillis() - it.time) / (1000 * 60 * 60 * 24)
+        when {
+            diffInDays == 0L -> "Today"
+            diffInDays == 1L -> "Yesterday"
+            diffInDays > 1 -> "$diffInDays days ago"
+            else -> "Upcoming"
+        }
+    } ?: ""
+    // Use a theme-aware color that adapts to light/dark mode
+    Text(text = dateDetails, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@Composable
+fun NumberCircle(number: String, isPowerball: Boolean) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(48.dp)
+            .background(
+                color = if (isPowerball) Color.Red else Color.White,
+                shape = CircleShape
+            )
+            .border(1.dp, Color.Black, CircleShape)
+    ) {
+        Text(
+            text = number,
+            color = if (isPowerball) Color.White else Color.Black,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
         )
-        tvPowerball = findViewById(R.id.tv_powerball)
     }
+}
 
-    private fun setupObservers() {
-        try {
-            viewModel.loading.observe(this) { isLoading ->
-                android.util.Log.d(TAG, "Loading state: $isLoading")
-                progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
-                btnFetch.isEnabled = !isLoading
-            }
-
-            viewModel.numbers.observe(this) { numbers ->
-                android.util.Log.d(TAG, "Numbers received: $numbers")
-                if (numbers != null) {
-                    displayNumbers(numbers)
-                }
-            }
-
-            viewModel.error.observe(this) { errorMsg ->
-                android.util.Log.d(TAG, "Error received: $errorMsg")
-                tvError.text = errorMsg
-                tvError.visibility = if (errorMsg != null) View.VISIBLE else View.GONE
-            }
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "Error setting up observers: ${e.message}", e)
+@Composable
+fun JackpotInfo(numbers: PowerballNumbers) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("Jackpot", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFFA500))
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(numbers.jackpotAmount, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color(0xFF006400))
+        Spacer(modifier = Modifier.height(4.dp))
+        val winnerText = if (numbers.jackpotWinners.equals("None", ignoreCase = true) || numbers.jackpotWinners.isEmpty()) {
+            "No Winner"
+        } else {
+            "Winners: ${numbers.jackpotWinners}"
         }
+        // Use a theme-aware color
+        Text(winnerText, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
 
-    private fun setupClickListeners() {
-        btnFetch.setOnClickListener {
-            android.util.Log.d(TAG, "Fetch button clicked")
-            // ADDED: The button always fetches fresh data from the network, ignoring the cache.
-            getDrawingNumbers()
-        }
-
-        btnOpenWebsite.setOnClickListener {
-            val url = "https://www.powerball.com/"
-            val intent = Intent(Intent.ACTION_VIEW)
-            intent.data = Uri.parse(url)
-            startActivity(intent)
-        }
+@Composable
+fun NextDrawingInfo(numbers: PowerballNumbers) {
+    Column(
+        modifier = Modifier.width(IntrinsicSize.Max), // Set width to match the widest child
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Divider(color = Color.Gray, thickness = 1.dp, modifier = Modifier.padding(vertical = 16.dp))
+        // Use a theme-aware color
+        Text("Next Drawing: ${numbers.nextDrawDate}", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Estimated Jackpot: ${numbers.nextDrawJackpot}", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
 
-    private fun getDrawingNumbers() {
-        hideAllDataViews()
-        viewModel.fetchLatestNumbers(forceNetwork = true)
-    }
-
-    private fun displayNumbers(numbers: PowerballNumbers) {
-        android.util.Log.d(TAG, "Displaying numbers: ${numbers.numbers}, powerball: ${numbers.powerball}")
-
-        try {
-            // --- Display Winning Draw Information ---
-            if (numbers.jackpotAmount.isNotEmpty() && numbers.jackpotAmount != "Counting..") {
-                tvJackpot.visibility = View.VISIBLE
-                tvJackpotAmount.text = numbers.jackpotAmount
-                tvJackpotAmount.visibility = View.VISIBLE
-            }
-
-            // ADDED: This part is commented out to hide the Cash Value.
-            // if (numbers.cashValue.isNotEmpty() && numbers.cashValue != "Counting..") {
-            //     tvCashValue.text = "Cash Value: ${numbers.cashValue}"
-            //     tvCashValue.visibility = View.VISIBLE
-            // }
-
-            if (numbers.jackpotWinners.equals("None", ignoreCase = true) || numbers.jackpotWinners.isEmpty()) {
-                tvJackpotWinners.text = "No Winner"
-            } else {
-                tvJackpotWinners.text = "Winners: ${numbers.jackpotWinners}"
-            }
-            tvJackpotWinners.visibility = View.VISIBLE
-
-
-            tvDate.text = numbers.drawDateFormatted
-            tvDate.visibility = View.VISIBLE
-
-            val dateDetails = buildString {
-                numbers.drawDateObject?.let { drawDate ->
-                    val currentDate = java.util.Date()
-                    val diffInMillis = currentDate.time - drawDate.time
-                    val diffInDays = diffInMillis / (1000 * 60 * 60 * 24)
-                    when {
-                        diffInDays == 0L -> append("Today")
-                        diffInDays == 1L -> append("Yesterday")
-                        diffInDays > 1 -> append("$diffInDays days ago")
-                        diffInDays < 0 -> append("Upcoming")
-                    }
-                }
-            }
-            tvDateDetails.text = dateDetails
-            // Only show if there is content
-            tvDateDetails.visibility = if (dateDetails.isNotEmpty()) View.VISIBLE else View.GONE
-
-            numbers.numbers.forEachIndexed { index, number ->
-                if (index < numberViews.size) {
-                    numberViews[index].text = number.toString()
-                }
-            }
-            tvPowerball.text = numbers.powerball.toString()
-            layoutNumbers.visibility = View.VISIBLE
-
-            // ADDED: This part is commented out to hide the Power Play multiplier.
-            // if (numbers.multiplier > 1) {
-            //     tvMultiplier.text = "Power Play: ${numbers.multiplier}X"
-            //     tvMultiplier.visibility = View.VISIBLE
-            // }
-
-            // --- Display Next Drawing Information ---
-            if (numbers.nextDrawDate.isNotEmpty() && numbers.nextDrawDate != "N/A") {
-                tvNextDrawDate.text = "Next Drawing: ${numbers.nextDrawDate}"
-                tvNextDrawJackpot.text = "Estimated Jackpot: ${numbers.nextDrawJackpot}"
-                layoutNextDraw.visibility = View.VISIBLE
-            }
-
-            tvError.visibility = View.GONE
-
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "Error displaying numbers: ${e.message}", e)
-            tvError.text = "Error displaying results: ${e.message}"
-            tvError.visibility = View.VISIBLE
-        }
-    }
-
-    private fun hideAllDataViews() {
-        tvJackpot.visibility = View.GONE
-        tvJackpotAmount.visibility = View.GONE
-        tvCashValue.visibility = View.GONE
-        tvJackpotWinners.visibility = View.GONE
-        tvDate.visibility = View.GONE
-        tvDateDetails.visibility = View.GONE
-        layoutNumbers.visibility = View.GONE
-        tvMultiplier.visibility = View.GONE
-        layoutNextDraw.visibility = View.GONE
-        tvError.visibility = View.GONE
+@Preview(showBackground = true)
+@Composable
+fun DefaultPreview() {
+    PowerballWinningNumbersTheme {
+        val mockNumbers = PowerballNumbers(
+            drawDate = "2025-10-20T00:00:00.000Z",
+            drawDateFormatted = "Mon, Oct 20, 2025",
+            drawDateObject = Date(),
+            numbers = listOf(10, 22, 33, 45, 58),
+            powerball = 26,
+            multiplier = 2,
+            jackpotAmount = "$305 Million",
+            cashValue = "$144.1 Million",
+            nextDrawJackpot = "$324 Million",
+            nextDrawDate = "Wed, Oct 22, 2025",
+            jackpotWinners = "1 (GA)",
+            nextDrawDateObject = Date()
+        )
+        PowerballScreenContent(
+            numbers = mockNumbers,
+            isLoading = false,
+            error = null,
+            onFetchClick = {},
+            onWebsiteClick = {}
+        )
     }
 }
