@@ -1,5 +1,7 @@
 
-<img width="1239" height="1262" alt="image" src="https://github.com/user-attachments/assets/0fe64986-6475-4019-8eeb-21c2beee093d" />
+![2default](https://github.com/user-attachments/assets/3f3bfbe4-6793-4a97-8b69-0a62e7167ce9)
 
-<img width="1239" height="1272" alt="image" src="https://github.com/user-attachments/assets/ea388551-205f-45d2-beed-ea40ceef67f7" />
+![2dark](https://github.com/user-attachments/assets/8a2f5544-9204-4eb0-9d36-30cb8bb0bd40)
 
+![LandScape](https://github.com/user-attachments/assets/e4df3135-fdb9-4592-aa3f-21158ccfe161)
+Vertical scrollable for when the screen is rotated
